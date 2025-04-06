@@ -9,7 +9,7 @@ BATCH_SIZE = 4
 NEW_TOKENS = [5, 10, 50]
 REPEATS = 5
 
-model_id = ... #TODO: path to your model. You can use your trained model from the previous assignment, or the pretrained model you downloaded.
+model_id = "../../cmu11967-HW10/11967-hw10-dev-main/models/GPTNeoX-160M-WikiText-512-flash-attention-2-seq-len-2048-gradient-checkpointing" #TODO: path to your model. You can use your trained model from the previous assignment, or the pretrained model you downloaded.
 
 def timed_generate_huggingface():
     tokenizer = AutoTokenizer.from_pretrained(model_id)
@@ -35,6 +35,7 @@ def timed_generate_huggingface():
         start_event.record()
         for _ in range(REPEATS):
             # TODO: implement model.generate() here
+            model.generate(**inputs, max_new_tokens=num_new_tokens)
 
         end_event.record()
         torch.cuda.synchronize()
@@ -54,6 +55,10 @@ def timed_generate_vllm():
 
     for num_new_tokens in NEW_TOKENS:
         # TODO: implement sampling_params = SamplingParams() with the correct arguments
+        sampling_params = SamplingParams(
+            max_new_tokens=num_new_tokens,
+            temperature=0
+        )
 
         start_event = torch.cuda.Event(enable_timing=True)
         end_event = torch.cuda.Event(enable_timing=True)
@@ -64,6 +69,12 @@ def timed_generate_vllm():
         start_event.record()
         for _ in range(REPEATS):
             # TODO: implement llm.generate() here
+            llm.generate(
+                text,
+                sampling_params=sampling_params,
+                batch_size=BATCH_SIZE,
+                max_new_tokens=num_new_tokens
+            )
 
         end_event.record()
         torch.cuda.synchronize()
