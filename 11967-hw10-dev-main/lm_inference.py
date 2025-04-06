@@ -4,12 +4,13 @@ from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 import seaborn as sns
 from vllm import LLM, SamplingParams
+from dataclasses import field
 
 BATCH_SIZE = 4
 NEW_TOKENS = [5, 10, 50]
 REPEATS = 5
 
-model_id = "../../cmu11967-HW10/11967-hw10-dev-main/models/GPTNeoX-160M-WikiText-512-flash-attention-2-seq-len-2048-gradient-checkpointing" #TODO: path to your model. You can use your trained model from the previous assignment, or the pretrained model you downloaded.
+model_id = "models" # "jmvcoelho/GPTNeoX-160m" #"~/cmu11967-HW10/11967-hw10-dev-main/models/GPTNeoX-160M-WikiText-512-flash-attention-2-seq-len-2048-gradient-checkpointing"  #TODO: path to your model. You can use your trained model from the previous assignment, or the pretrained model you downloaded.
 
 def timed_generate_huggingface():
     tokenizer = AutoTokenizer.from_pretrained(model_id)
@@ -56,7 +57,7 @@ def timed_generate_vllm():
     for num_new_tokens in NEW_TOKENS:
         # TODO: implement sampling_params = SamplingParams() with the correct arguments
         sampling_params = SamplingParams(
-            max_new_tokens=num_new_tokens,
+            max_tokens=num_new_tokens,
             temperature=0
         )
 
@@ -69,12 +70,7 @@ def timed_generate_vllm():
         start_event.record()
         for _ in range(REPEATS):
             # TODO: implement llm.generate() here
-            llm.generate(
-                text,
-                sampling_params=sampling_params,
-                batch_size=BATCH_SIZE,
-                max_new_tokens=num_new_tokens
-            )
+            llm.generate(text, sampling_params=sampling_params)
 
         end_event.record()
         torch.cuda.synchronize()
@@ -84,21 +80,24 @@ def timed_generate_vllm():
     
     return total_time_dict
 
+def main():
+    total_time_dict_huggingface = timed_generate_huggingface()
+    total_time_dict_vllm = timed_generate_vllm()
 
-total_time_dict_huggingface = timed_generate_huggingface()
-total_time_dict_vllm = timed_generate_vllm()
+    sns.set(style="darkgrid")
 
-sns.set(style="darkgrid")
+    # plot both lines
+    sns.lineplot(data=total_time_dict_huggingface, color="blue", label="huggingface-generate")
+    sns.lineplot(data=total_time_dict_vllm, color="red", label="vllm-generate")
 
-# plot both lines
-sns.lineplot(data=total_time_dict_huggingface, color="blue", label="huggingface-generate")
-sns.lineplot(data=total_time_dict_vllm, color="red", label="vllm-generate")
+    plt.ylabel("Average inference time (s)")
+    plt.xlabel("Tokens Generated")
+    plt.title("Comparing average inference time", fontsize = 8)
 
-plt.ylabel("Average inference time (s)")
-plt.xlabel("Tokens Generated")
-plt.title("Comparing average inference time", fontsize = 8)
+    plt.legend()
 
-plt.legend()
+    # save plot
+    plt.savefig("seaborn_comparison_plot.jpg", dpi=300)
 
-# save plot
-plt.savefig("seaborn_comparison_plot.jpg", dpi=300)
+if __name__ == '__main__':
+    main()
